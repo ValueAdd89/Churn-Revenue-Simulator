@@ -468,12 +468,14 @@ def main():
 
     st.markdown("---")
 
-    # Analytics tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    # Analytics tabs - UPDATED TABS
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📈 Churn Analysis",
         "💰 Revenue Analysis",
         "👥 Customer Segments",
+        "📈 Value & Adoption", # New tab for LTV & Feature Adoption
         "⚠️ Risk Management",
+        "💡 Recommendations", # New tab for Recommended Actions
         "📋 Data Explorer"
     ])
 
@@ -531,7 +533,34 @@ def main():
             else:
                 st.warning("Missing 'churn_risk_level' or 'monthly_revenue' column for Revenue by Risk Level chart.")
 
-        # LTV analysis
+        # LTV analysis and Feature Adoption Analysis are now in a new tab
+
+    with tab3: # Customer Segments
+        st.markdown("#### Customer Segmentation Analysis")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            chart = create_tenure_usage_scatter(df)
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+
+        with col2:
+            if 'churn_risk_level' in df.columns:
+                risk_dist = df['churn_risk_level'].value_counts()
+                fig = px.pie(
+                    values=risk_dist.values,
+                    names=risk_dist.index,
+                    title='Customer Risk Distribution',
+                    color_discrete_map={'low': 'green', 'medium': 'orange', 'high': 'red'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Missing 'churn_risk_level' column for Customer Risk Distribution chart.")
+
+        # Feature adoption analysis is now in a new tab
+
+    with tab4: # 📈 Value & Adoption (New Tab)
         st.markdown("#### Customer Lifetime Value Analysis")
         if 'total_revenue' in df.columns:
             col1, col2, col3 = st.columns(3)
@@ -555,32 +584,8 @@ def main():
         else:
             st.warning("Missing 'total_revenue' column for Customer Lifetime Value Analysis.")
 
-    with tab3:
-        st.markdown("#### Customer Segmentation Analysis")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            chart = create_tenure_usage_scatter(df)
-            if chart:
-                st.plotly_chart(chart, use_container_width=True)
-
-        with col2:
-            if 'churn_risk_level' in df.columns:
-                risk_dist = df['churn_risk_level'].value_counts()
-                fig = px.pie(
-                    values=risk_dist.values,
-                    names=risk_dist.index,
-                    title='Customer Risk Distribution',
-                    color_discrete_map={'low': 'green', 'medium': 'orange', 'high': 'red'}
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("Missing 'churn_risk_level' column for Customer Risk Distribution chart.")
-
-        # Feature adoption analysis
+        st.markdown("#### Feature Adoption Analysis")
         if 'features_adopted' in df.columns and 'subscription_tier' in df.columns:
-            st.markdown("#### Feature Adoption Analysis")
             col1, col2 = st.columns(2)
 
             with col1:
@@ -596,7 +601,8 @@ def main():
         else:
             st.warning("Missing 'features_adopted' or 'subscription_tier' column for Feature Adoption Analysis.")
 
-    with tab4:
+
+    with tab5: # Risk Management (original tab, content remains)
         st.markdown("#### Risk Management Dashboard")
 
         # High-risk customers
@@ -662,7 +668,9 @@ def main():
             st.warning("Missing 'churn_risk_level' column for Risk Management Dashboard.")
 
 
-        # Action recommendations
+        # Action recommendations are now in a new tab
+
+    with tab6: # 💡 Recommendations (New Tab)
         st.markdown("#### 💡 Recommended Actions")
 
         col1, col2, col3 = st.columns(3)
@@ -694,7 +702,7 @@ def main():
             - Referral program enrollment
             """)
 
-    with tab5:
+    with tab7: # Data Explorer (original tab, content remains)
         st.markdown("#### Data Explorer")
 
         # Data overview
