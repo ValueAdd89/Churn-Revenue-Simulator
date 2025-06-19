@@ -283,7 +283,7 @@ def main():
         st.error("Could not calculate key metrics. Please check the data and 'calculate_metrics' function.")
         return
 
-    # Display key metrics
+    # Display key metrics (Moved inside main() from global scope)
     st.markdown("### 📊 Executive Dashboard")
     col1, col2, col3, col4 = st.columns(4)
 
