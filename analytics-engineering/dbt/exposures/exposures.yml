@@ -1,0 +1,21 @@
+
+version: 2
+
+exposures:
+  - name: churn_dashboard
+    label: Churn Insights Dashboard
+    type: dashboard
+    maturity: high
+    url: http://localhost:8501
+    description: >
+      Executive dashboard showing churn trends and forecasts.
+    depends_on:
+      - ref('customer_churn_summary')
+
+  - name: churn_model_training
+    label: ML Churn Training Pipeline
+    type: application
+    description: >
+      This exposure represents the pipeline that trains ML churn models using features from the analytics mart.
+    depends_on:
+      - ref('customer_churn_summary')

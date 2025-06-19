@@ -1,0 +1,65 @@
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    env:
+      DBT_PROFILES_DIR: ./analytics-engineering/dbt
+
+    services:
+      postgres:
+        image: postgres:13
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r applications/api/requirements.txt
+          pip install -r applications/dashboard/requirements.txt
+          pip install dbt-core dbt-snowflake
+
+      - name: Run dbt tests
+        run: |
+          cd analytics-engineering/dbt
+          dbt deps
+          dbt seed --profiles-dir .
+          dbt run --profiles-dir .
+          dbt test --profiles-dir .
+
+      - name: Run ML pipeline
+        run: |
+          python data-science/models/train_model.py
+
+      - name: Run FastAPI tests
+        run: |
+          uvicorn applications/api/main:app --host 0.0.0.0 --port 8000 & sleep 10
+          curl -X 'POST'             'http://localhost:8000/predict'             -H 'accept: application/json'             -H 'Content-Type: application/json'             -d '{ "customer_id": 123 }'
+
+      - name: Deploy confirmation
+        run: echo "All systems go for deployment ✅"

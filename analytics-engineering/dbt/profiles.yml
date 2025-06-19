@@ -1,0 +1,15 @@
+
+churn_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: your_snowflake_account
+      user: your_username
+      password: your_password
+      role: your_role
+      database: CHURN_DB
+      warehouse: COMPUTE_WH
+      schema: ANALYTICS
+      threads: 4
+      client_session_keep_alive: False
