@@ -287,80 +287,68 @@ def main():
     # --- Sidebar Filters ---
     st.sidebar.header("⚙️ Apply Filters")
 
-    # It's important to make copies of the unique values *before* filtering df,
-    # so that the dropdown options don't change dynamically based on other filters.
-    # Alternatively, populate options based on the original df, then filter.
-    # For simplicity, we'll populate options based on the *current* df, but if cross-filter
-    # dependencies are complex, this might need re-evaluation.
+    # For single-select dropdowns, use st.selectbox
+    # It's good practice to add an "All" option for selection box filters
+    # when you want to show all data by default.
 
     # Filter by Country
     if 'country' in df.columns:
-        all_countries = df['country'].unique().tolist()
-        selected_countries = st.sidebar.multiselect(
-            "Select Country(s)",
+        all_countries = ['All'] + df['country'].unique().tolist()
+        selected_country = st.sidebar.selectbox(
+            "Select Country",
             options=all_countries,
-            default=all_countries # Default to all selected
+            index=0 # 'All' is default
         )
-        if selected_countries: # Only filter if selections are made
-            df = df[df['country'].isin(selected_countries)]
-        else:
-            st.sidebar.warning("Please select at least one country.")
+        if selected_country != 'All':
+            df = df[df['country'] == selected_country]
 
     # Filter by Company Size
     if 'company_size' in df.columns:
-        company_size_order = ['startup', 'small', 'medium', 'large', 'enterprise']
-        all_company_sizes = [s for s in company_size_order if s in df['company_size'].unique()]
-        selected_company_sizes = st.sidebar.multiselect(
-            "Select Company Size(s)",
-            options=all_company_sizes,
-            default=all_company_sizes
+        company_size_order = ['All', 'startup', 'small', 'medium', 'large', 'enterprise']
+        # Ensure only relevant options are in the list based on current data
+        available_company_sizes = [s for s in company_size_order if s == 'All' or s in df['company_size'].unique()]
+        selected_company_size = st.sidebar.selectbox(
+            "Select Company Size",
+            options=available_company_sizes,
+            index=0
         )
-        if selected_company_sizes:
-            df = df[df['company_size'].isin(selected_company_sizes)]
-        else:
-            st.sidebar.warning("Please select at least one company size.")
+        if selected_company_size != 'All':
+            df = df[df['company_size'] == selected_company_size]
 
     # Filter by Industry
     if 'industry' in df.columns:
-        all_industries = df['industry'].unique().tolist()
-        selected_industries = st.sidebar.multiselect(
-            "Select Industry(s)",
+        all_industries = ['All'] + df['industry'].unique().tolist()
+        selected_industry = st.sidebar.selectbox(
+            "Select Industry",
             options=all_industries,
-            default=all_industries
+            index=0
         )
-        if selected_industries:
-            df = df[df['industry'].isin(selected_industries)]
-        else:
-            st.sidebar.warning("Please select at least one industry.")
-
+        if selected_industry != 'All':
+            df = df[df['industry'] == selected_industry]
 
     # Filter by Subscription Tier
     if 'subscription_tier' in df.columns:
-        subscription_tier_order = ['basic', 'premium', 'enterprise']
-        all_subscription_tiers = [s for s in subscription_tier_order if s in df['subscription_tier'].unique()]
-        selected_subscription_tiers = st.sidebar.multiselect(
-            "Select Subscription Tier(s)",
-            options=all_subscription_tiers,
-            default=all_subscription_tiers
+        subscription_tier_order = ['All', 'basic', 'premium', 'enterprise']
+        available_subscription_tiers = [s for s in subscription_tier_order if s == 'All' or s in df['subscription_tier'].unique()]
+        selected_subscription_tier = st.sidebar.selectbox(
+            "Select Subscription Tier",
+            options=available_subscription_tiers,
+            index=0
         )
-        if selected_subscription_tiers:
-            df = df[df['subscription_tier'].isin(selected_subscription_tiers)]
-        else:
-            st.sidebar.warning("Please select at least one subscription tier.")
+        if selected_subscription_tier != 'All':
+            df = df[df['subscription_tier'] == selected_subscription_tier]
 
     # Filter by Churn Risk Level
     if 'churn_risk_level' in df.columns:
-        risk_level_order = ['low', 'medium', 'high']
-        all_risk_levels = [l for l in risk_level_order if l in df['churn_risk_level'].unique()]
-        selected_risk_levels = st.sidebar.multiselect(
+        risk_level_order = ['All', 'low', 'medium', 'high']
+        available_risk_levels = [l for l in risk_level_order if l == 'All' or l in df['churn_risk_level'].unique()]
+        selected_risk_level = st.sidebar.selectbox(
             "Filter by Churn Risk Level",
-            options=all_risk_levels,
-            default=all_risk_levels
+            options=available_risk_levels,
+            index=0
         )
-        if selected_risk_levels:
-            df = df[df['churn_risk_level'].isin(selected_risk_levels)]
-        else:
-            st.sidebar.warning("Please select at least one churn risk level.")
+        if selected_risk_level != 'All':
+            df = df[df['churn_risk_level'] == selected_risk_level]
 
     # Filter by Customer Tenure (Months) - Slider remains for range selection
     if 'customer_tenure_months' in df.columns and not df['customer_tenure_months'].empty:
