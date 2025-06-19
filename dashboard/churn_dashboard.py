@@ -166,6 +166,10 @@ def create_churn_by_segment_chart(df, segment_col, title_suffix=""):
         # Filter out rows where segment_col might be NaN if not handled upstream
         df_filtered = df.dropna(subset=[segment_col])
 
+        if df_filtered.empty: # Check if DataFrame is empty after dropping NaNs
+            st.info(f"No data for {segment_col} after filtering out missing values.")
+            return None
+
         segment_stats = df_filtered.groupby(segment_col).agg({
             'customer_id': 'count',
             'is_churned': ['sum', 'mean'],
@@ -221,7 +225,7 @@ def create_tenure_usage_scatter(df):
             return None
 
         # Sample data for better performance with large datasets
-        sample_df = df.sample(min(500, len(df), 1000)) # Ensure min is not zero if len(df) is too small
+        sample_df = df.sample(min(len(df), 1000)) # Ensure min is not zero if len(df) is too small
 
         fig = px.scatter(
             sample_df,
@@ -283,81 +287,130 @@ def main():
     # --- Sidebar Filters ---
     st.sidebar.header("⚙️ Apply Filters")
 
+    # It's important to make copies of the unique values *before* filtering df,
+    # so that the dropdown options don't change dynamically based on other filters.
+    # Alternatively, populate options based on the original df, then filter.
+    # For simplicity, we'll populate options based on the *current* df, but if cross-filter
+    # dependencies are complex, this might need re-evaluation.
+
     # Filter by Country
     if 'country' in df.columns:
+        all_countries = df['country'].unique().tolist()
         selected_countries = st.sidebar.multiselect(
             "Select Country(s)",
-            options=df['country'].unique().tolist(),
-            default=df['country'].unique().tolist()
+            options=all_countries,
+            default=all_countries # Default to all selected
         )
-        df = df[df['country'].isin(selected_countries)]
+        if selected_countries: # Only filter if selections are made
+            df = df[df['country'].isin(selected_countries)]
+        else:
+            st.sidebar.warning("Please select at least one country.")
 
     # Filter by Company Size
     if 'company_size' in df.columns:
         company_size_order = ['startup', 'small', 'medium', 'large', 'enterprise']
+        all_company_sizes = [s for s in company_size_order if s in df['company_size'].unique()]
         selected_company_sizes = st.sidebar.multiselect(
             "Select Company Size(s)",
-            options=[s for s in company_size_order if s in df['company_size'].unique()],
-            default=[s for s in company_size_order if s in df['company_size'].unique()]
+            options=all_company_sizes,
+            default=all_company_sizes
         )
-        df = df[df['company_size'].isin(selected_company_sizes)]
+        if selected_company_sizes:
+            df = df[df['company_size'].isin(selected_company_sizes)]
+        else:
+            st.sidebar.warning("Please select at least one company size.")
 
     # Filter by Industry
     if 'industry' in df.columns:
+        all_industries = df['industry'].unique().tolist()
         selected_industries = st.sidebar.multiselect(
             "Select Industry(s)",
-            options=df['industry'].unique().tolist(),
-            default=df['industry'].unique().tolist()
+            options=all_industries,
+            default=all_industries
         )
-        df = df[df['industry'].isin(selected_industries)]
+        if selected_industries:
+            df = df[df['industry'].isin(selected_industries)]
+        else:
+            st.sidebar.warning("Please select at least one industry.")
+
 
     # Filter by Subscription Tier
     if 'subscription_tier' in df.columns:
         subscription_tier_order = ['basic', 'premium', 'enterprise']
+        all_subscription_tiers = [s for s in subscription_tier_order if s in df['subscription_tier'].unique()]
         selected_subscription_tiers = st.sidebar.multiselect(
             "Select Subscription Tier(s)",
-            options=[s for s in subscription_tier_order if s in df['subscription_tier'].unique()],
-            default=[s for s in subscription_tier_order if s in df['subscription_tier'].unique()]
+            options=all_subscription_tiers,
+            default=all_subscription_tiers
         )
-        df = df[df['subscription_tier'].isin(selected_subscription_tiers)]
+        if selected_subscription_tiers:
+            df = df[df['subscription_tier'].isin(selected_subscription_tiers)]
+        else:
+            st.sidebar.warning("Please select at least one subscription tier.")
 
     # Filter by Churn Risk Level
     if 'churn_risk_level' in df.columns:
         risk_level_order = ['low', 'medium', 'high']
+        all_risk_levels = [l for l in risk_level_order if l in df['churn_risk_level'].unique()]
         selected_risk_levels = st.sidebar.multiselect(
             "Filter by Churn Risk Level",
-            options=[l for l in risk_level_order if l in df['churn_risk_level'].unique()],
-            default=[l for l in risk_level_order if l in df['churn_risk_level'].unique()]
+            options=all_risk_levels,
+            default=all_risk_levels
         )
-        df = df[df['churn_risk_level'].isin(selected_risk_levels)]
+        if selected_risk_levels:
+            df = df[df['churn_risk_level'].isin(selected_risk_levels)]
+        else:
+            st.sidebar.warning("Please select at least one churn risk level.")
 
-    # Filter by Customer Tenure (Months)
+    # Filter by Customer Tenure (Months) - Slider remains for range selection
     if 'customer_tenure_months' in df.columns and not df['customer_tenure_months'].empty:
-        min_tenure, max_tenure = float(df['customer_tenure_months'].min()), float(df['customer_tenure_months'].max())
-        tenure_range = st.sidebar.slider(
-            "Customer Tenure (Months)",
-            min_value=min_tenure,
-            max_value=max_tenure,
-            value=(min_tenure, max_tenure),
-            step=0.1
-        )
-        df = df[(df['customer_tenure_months'] >= tenure_range[0]) & (df['customer_tenure_months'] <= tenure_range[1])]
+        # Check if min/max tenure are valid numbers before using them
+        if not df['customer_tenure_months'].isnull().all(): # Check if not all are NaN
+            min_tenure_val = df['customer_tenure_months'].min()
+            max_tenure_val = df['customer_tenure_months'].max()
 
-    # Filter by Monthly Revenue
+            # Handle cases where min/max might be the same (e.g., all customers have 0 tenure)
+            if min_tenure_val == max_tenure_val:
+                st.sidebar.write(f"Customer Tenure (Months): {min_tenure_val:.1f}")
+                tenure_range = (min_tenure_val, max_tenure_val) # Set range to single value
+            else:
+                tenure_range = st.sidebar.slider(
+                    "Customer Tenure (Months)",
+                    min_value=float(min_tenure_val),
+                    max_value=float(max_tenure_val),
+                    value=(float(min_tenure_val), float(max_tenure_val)),
+                    step=0.1
+                )
+            df = df[(df['customer_tenure_months'] >= tenure_range[0]) & (df['customer_tenure_months'] <= tenure_range[1])]
+        else:
+            st.sidebar.info("Customer Tenure data is not available for filtering.")
+
+
+    # Filter by Monthly Revenue - Slider remains for range selection
     if 'monthly_revenue' in df.columns and not df['monthly_revenue'].empty:
-        min_revenue, max_revenue = float(df['monthly_revenue'].min()), float(df['monthly_revenue'].max())
-        revenue_range = st.sidebar.slider(
-            "Monthly Revenue ($)",
-            min_value=min_revenue,
-            max_value=max_revenue,
-            value=(min_revenue, max_revenue),
-            step=1.0
-        )
-        df = df[(df['monthly_revenue'] >= revenue_range[0]) & (df['monthly_revenue'] <= revenue_range[1])]
+        if not df['monthly_revenue'].isnull().all():
+            min_revenue_val = df['monthly_revenue'].min()
+            max_revenue_val = df['monthly_revenue'].max()
+
+            if min_revenue_val == max_revenue_val:
+                st.sidebar.write(f"Monthly Revenue ($): ${min_revenue_val:,.0f}")
+                revenue_range = (min_revenue_val, max_revenue_val)
+            else:
+                revenue_range = st.sidebar.slider(
+                    "Monthly Revenue ($)",
+                    min_value=float(min_revenue_val),
+                    max_value=float(max_revenue_val),
+                    value=(float(min_revenue_val), float(max_revenue_val)),
+                    step=1.0
+                )
+            df = df[(df['monthly_revenue'] >= revenue_range[0]) & (df['monthly_revenue'] <= revenue_range[1])]
+        else:
+            st.sidebar.info("Monthly Revenue data is not available for filtering.")
+
 
     # Check if filtered DataFrame is empty
     if df.empty:
-        st.warning("No customers match the selected filter criteria.")
+        st.warning("No customers match the selected filter criteria. Please adjust your filters.")
         return # Exit main if no data to display
 
     # Recalculate metrics after filtering
