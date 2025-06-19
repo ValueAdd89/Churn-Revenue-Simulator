@@ -108,7 +108,8 @@ def calculate_churn_risk(df):
         df['churn_risk_level'] = pd.cut(
             df['churn_risk_score'],
             bins=[0, 0.2, 0.5, 1.0],
-            labels=['low', 'medium', 'high']
+            labels=['low', 'medium', 'high'],
+            right=False # Ensure 0.2 is 'low', not 'medium'
         )
 
         # Simulate actual churn based on risk scores
@@ -162,7 +163,10 @@ def create_churn_by_segment_chart(df, segment_col, title_suffix=""):
             st.warning(f"Missing '{segment_col}' or 'is_churned' column for churn segment chart.")
             return None
 
-        segment_stats = df.groupby(segment_col).agg({
+        # Filter out rows where segment_col might be NaN if not handled upstream
+        df_filtered = df.dropna(subset=[segment_col])
+
+        segment_stats = df_filtered.groupby(segment_col).agg({
             'customer_id': 'count',
             'is_churned': ['sum', 'mean'],
             'monthly_revenue': 'sum'
@@ -183,7 +187,7 @@ def create_churn_by_segment_chart(df, segment_col, title_suffix=""):
         fig.update_layout(height=400)
         return fig
     except Exception as e:
-        st.error(f"Error creating segment chart: {e}")
+        st.error(f"Error creating segment chart for {segment_col}: {e}")
         return None
 
 def create_revenue_chart(df):
@@ -217,7 +221,7 @@ def create_tenure_usage_scatter(df):
             return None
 
         # Sample data for better performance with large datasets
-        sample_df = df.sample(min(500, len(df)))
+        sample_df = df.sample(min(500, len(df), 1000)) # Ensure min is not zero if len(df) is too small
 
         fig = px.scatter(
             sample_df,
@@ -276,14 +280,94 @@ def main():
 
     st.success(f"✅ Successfully loaded {len(df):,} customer records")
 
-    # Calculate metrics
+    # --- Sidebar Filters ---
+    st.sidebar.header("⚙️ Apply Filters")
+
+    # Filter by Country
+    if 'country' in df.columns:
+        selected_countries = st.sidebar.multiselect(
+            "Select Country(s)",
+            options=df['country'].unique().tolist(),
+            default=df['country'].unique().tolist()
+        )
+        df = df[df['country'].isin(selected_countries)]
+
+    # Filter by Company Size
+    if 'company_size' in df.columns:
+        company_size_order = ['startup', 'small', 'medium', 'large', 'enterprise']
+        selected_company_sizes = st.sidebar.multiselect(
+            "Select Company Size(s)",
+            options=[s for s in company_size_order if s in df['company_size'].unique()],
+            default=[s for s in company_size_order if s in df['company_size'].unique()]
+        )
+        df = df[df['company_size'].isin(selected_company_sizes)]
+
+    # Filter by Industry
+    if 'industry' in df.columns:
+        selected_industries = st.sidebar.multiselect(
+            "Select Industry(s)",
+            options=df['industry'].unique().tolist(),
+            default=df['industry'].unique().tolist()
+        )
+        df = df[df['industry'].isin(selected_industries)]
+
+    # Filter by Subscription Tier
+    if 'subscription_tier' in df.columns:
+        subscription_tier_order = ['basic', 'premium', 'enterprise']
+        selected_subscription_tiers = st.sidebar.multiselect(
+            "Select Subscription Tier(s)",
+            options=[s for s in subscription_tier_order if s in df['subscription_tier'].unique()],
+            default=[s for s in subscription_tier_order if s in df['subscription_tier'].unique()]
+        )
+        df = df[df['subscription_tier'].isin(selected_subscription_tiers)]
+
+    # Filter by Churn Risk Level
+    if 'churn_risk_level' in df.columns:
+        risk_level_order = ['low', 'medium', 'high']
+        selected_risk_levels = st.sidebar.multiselect(
+            "Filter by Churn Risk Level",
+            options=[l for l in risk_level_order if l in df['churn_risk_level'].unique()],
+            default=[l for l in risk_level_order if l in df['churn_risk_level'].unique()]
+        )
+        df = df[df['churn_risk_level'].isin(selected_risk_levels)]
+
+    # Filter by Customer Tenure (Months)
+    if 'customer_tenure_months' in df.columns and not df['customer_tenure_months'].empty:
+        min_tenure, max_tenure = float(df['customer_tenure_months'].min()), float(df['customer_tenure_months'].max())
+        tenure_range = st.sidebar.slider(
+            "Customer Tenure (Months)",
+            min_value=min_tenure,
+            max_value=max_tenure,
+            value=(min_tenure, max_tenure),
+            step=0.1
+        )
+        df = df[(df['customer_tenure_months'] >= tenure_range[0]) & (df['customer_tenure_months'] <= tenure_range[1])]
+
+    # Filter by Monthly Revenue
+    if 'monthly_revenue' in df.columns and not df['monthly_revenue'].empty:
+        min_revenue, max_revenue = float(df['monthly_revenue'].min()), float(df['monthly_revenue'].max())
+        revenue_range = st.sidebar.slider(
+            "Monthly Revenue ($)",
+            min_value=min_revenue,
+            max_value=max_revenue,
+            value=(min_revenue, max_revenue),
+            step=1.0
+        )
+        df = df[(df['monthly_revenue'] >= revenue_range[0]) & (df['monthly_revenue'] <= revenue_range[1])]
+
+    # Check if filtered DataFrame is empty
+    if df.empty:
+        st.warning("No customers match the selected filter criteria.")
+        return # Exit main if no data to display
+
+    # Recalculate metrics after filtering
     metrics = calculate_metrics(df)
 
-    if not metrics: # Check if metrics dictionary is empty due to an error
-        st.error("Could not calculate key metrics. Please check the data and 'calculate_metrics' function.")
+    if not metrics: # Check if metrics dictionary is empty due to an error (e.g., filtered df is empty, leading to division by zero)
+        st.error("Could not calculate key metrics after filtering. Please adjust filters.")
         return
 
-    # Display key metrics (Moved inside main() from global scope)
+    # Display key metrics
     st.markdown("### 📊 Executive Dashboard")
     col1, col2, col3, col4 = st.columns(4)
 
@@ -332,14 +416,12 @@ def main():
         st.metric("Average LTV", f"${metrics.get('avg_ltv', 0):,.0f}")
 
     with col2:
-        # This line already correctly uses metrics.get('avg_tenure', 0)
         st.metric("Average Tenure", f"{metrics.get('avg_tenure', 0):.1f} months")
 
     with col3:
         st.metric("Revenue at Risk", f"${metrics.get('revenue_at_risk', 0):,.0f}")
 
     with col4:
-        # Ensure churn_rate is taken from metrics for consistency
         retention_rate = 100 - metrics.get('churn_rate', 0)
         st.metric("Retention Rate", f"{retention_rate:.1f}%")
 
@@ -506,15 +588,14 @@ def main():
 
                 with col1:
                     risk_factors = []
-                    if 'last_activity_days_ago' in df.columns:
+                    # Ensure risk calculation columns exist before checking them
+                    if all(col in df.columns for col in ['last_activity_days_ago', 'avg_daily_usage', 'support_tickets']):
                         inactive_pct = (df['last_activity_days_ago'] > 30).mean() * 100
                         risk_factors.append({"Factor": "Inactive > 30 days", "Percentage": inactive_pct})
 
-                    if 'avg_daily_usage' in df.columns:
                         low_usage_pct = (df['avg_daily_usage'] < 1).mean() * 100
                         risk_factors.append({"Factor": "Low daily usage", "Percentage": low_usage_pct})
 
-                    if 'support_tickets' in df.columns:
                         high_support_pct = (df['support_tickets'] > 5).mean() * 100
                         risk_factors.append({"Factor": "High support tickets", "Percentage": high_support_pct})
 
@@ -585,10 +666,10 @@ def main():
 
         with col2:
             # Check if signup_date column exists before accessing
-            if 'signup_date' in df.columns:
+            if 'signup_date' in df.columns and not df['signup_date'].empty:
                 st.write(f"**Date Range:** {df['signup_date'].min().strftime('%Y-%m-%d')} to {df['signup_date'].max().strftime('%Y-%m-%d')}")
             else:
-                st.write("**Date Range:** N/A (signup_date column missing)")
+                st.write("**Date Range:** N/A (signup_date column missing or empty)")
 
             if 'country' in df.columns:
                 st.write(f"**Countries:** {df['country'].nunique()}")
