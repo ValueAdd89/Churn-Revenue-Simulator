@@ -487,16 +487,6 @@ We welcome contributions from the community! 🎉 This project aims to be a coll
 
 ---
 
-## 📄 License
-
-<div align="center">
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-
-</div>
-
 ---
 
 ## 🙏 Acknowledgments
