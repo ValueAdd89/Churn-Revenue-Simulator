@@ -21,6 +21,12 @@
 
 Transform your subscription business with AI-powered churn prediction and revenue optimization. This project demonstrates a production-ready data platform designed to predict customer churn and provide deep insights into revenue patterns for SaaS businesses. It showcases a complete modern data stack, from raw data ingestion to interactive analytical applications, ensuring robust, scalable, and intelligent data operations.
 
+## 📋 Executive Documentation
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| **[📊 Live Analytics Dashboard](https://churn-revenue-simulator-2wickbylnazlzpc3uihmc5.streamlit.app/)** | Interactive platform with real-time insights and KPIs | Analysts, Product Managers |
+
 ## 🌟 Why This Matters
 
 <table>
